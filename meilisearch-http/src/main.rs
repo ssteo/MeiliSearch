@@ -27,6 +27,11 @@ pub fn main() -> Result<(), MainError> {
                 return Err("In production mode, the environment variable MEILI_MASTER_KEY is mandatory".into());
             }
             env_logger::init();
+            if !opt.no_analytics {
+                let _guard = sentry::init("https://5ddfa22b95f241198be2271aaf028653@sentry.io/3060337");
+                sentry::integrations::panic::register_panic_handler();
+                sentry::integrations::env_logger::init(None, Default::default());
+            }
         },
         "development" => {
             env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
