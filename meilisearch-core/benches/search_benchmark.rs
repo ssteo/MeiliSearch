@@ -2,19 +2,23 @@
 #[macro_use]
 extern crate assert_matches;
 
-use std::sync::mpsc;
-use std::path::Path;
-use std::fs;
+use std::error::Error;
+use std::fs::File;
+use std::io::BufReader;
 use std::iter;
+use std::path::Path;
+use std::sync::mpsc;
 
-use meilisearch_core::Database;
+use meilisearch_core::{Database, DatabaseOptions};
 use meilisearch_core::{ProcessedUpdateResult, UpdateStatus};
+use meilisearch_core::settings::{Settings, SettingsUpdate};
+use meilisearch_schema::Schema;
 use serde_json::Value;
 
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
 
 fn prepare_database(path: &Path) -> Database {
-    let database = Database::open_or_create(path).unwrap();
+    let database = Database::open_or_create(path, DatabaseOptions::default()).unwrap();
     let db = &database;
 
     let (sender, receiver) = mpsc::sync_channel(100);
@@ -25,21 +29,29 @@ fn prepare_database(path: &Path) -> Database {
 
     database.set_update_callback(Box::new(update_fn));
 
-    let schema = {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../datasets/movies/schema.toml");
-        let string = fs::read_to_string(path).expect("find schema");
-        toml::from_str(&string).unwrap()
+    db.main_write::<_, _, Box<dyn Error>>(|writer| {
+        index.main.put_schema(writer, &Schema::with_primary_key("id")).unwrap();
+        Ok(())
+    }).unwrap();
+
+    let settings_update: SettingsUpdate = {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../datasets/movies/settings.json");
+        let file = File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        let settings: Settings = serde_json::from_reader(reader).unwrap();
+        settings.to_update().unwrap()
     };
 
-    let mut update_writer = db.update_write_txn().unwrap();
-    let _update_id = index.schema_update(&mut update_writer, schema).unwrap();
-    update_writer.commit().unwrap();
+    db.update_write::<_, _, Box<dyn Error>>(|writer| {
+        let _update_id = index.settings_update(writer, settings_update).unwrap();
+        Ok(())
+    }).unwrap();
 
     let mut additions = index.documents_addition();
 
     let json: Value = {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../datasets/movies/movies.json");
-        let movies_file = fs::File::open(path).expect("find movies");
+        let movies_file = File::open(path).expect("find movies");
         serde_json::from_reader(movies_file).unwrap()
     };
 
@@ -49,9 +61,10 @@ fn prepare_database(path: &Path) -> Database {
         additions.update_document(document);
     }
 
-    let mut update_writer = db.update_write_txn().unwrap();
-    let update_id = additions.finalize(&mut update_writer).unwrap();
-    update_writer.commit().unwrap();
+    let update_id = db.update_write::<_, _, Box<dyn Error>>(|writer| {
+        let update_id = additions.finalize(writer).unwrap();
+        Ok(update_id)
+    }).unwrap();
 
     // block until the transaction is processed
     let _ = receiver.into_iter().find(|id| *id == update_id);
@@ -85,7 +98,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let bench_name = BenchmarkId::from_parameter(format!("{:?}", query));
         group.bench_with_input(bench_name, &query, |b, query| b.iter(|| {
             let builder = index.query_builder();
-            builder.query(&reader, query, 0..20).unwrap();
+            builder.query(&reader, Some(*query), 0..20).unwrap();
         }));
     }
     group.finish();

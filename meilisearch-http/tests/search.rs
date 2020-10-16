@@ -1,1302 +1,1831 @@
-use assert_json_diff::assert_json_eq;
-use serde_json::json;
 use std::convert::Into;
 
-mod common;
+use assert_json_diff::assert_json_eq;
+use serde_json::json;
+use serde_json::Value;
 
-#[test]
-fn basic_search() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[macro_use] mod common;
 
-    // 1 - Simple search
-    // q: Captain
-    // limit: 3
+#[actix_rt::test]
+async fn search() {
+    let mut server = common::Server::test_server().await;
 
-    let query = "q=captain&limit=3";
+    let query = json! ({
+        "q": "exercitation"
+    });
 
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858
-      },
-      {
-        "id": 271110,
-        "popularity": 37.431,
-        "vote_average": 7.4,
-        "title": "Captain America: Civil War",
-        "tagline": "Divided We Fall",
-        "overview": "Following the events of Age of Ultron, the collective governments of the world pass an act designed to regulate all superhuman activity. This polarizes opinion amongst the Avengers, causing two factions to side with Iron Man or Captain America, which causes an epic battle between former allies.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/kSBXou5Ac7vEqKd97wotJumyJvU.jpg",
-        "vote_count": 15079
-      },
-      {
-        "id": 1771,
-        "popularity": 19.657,
-        "vote_average": 6.9,
-        "title": "Captain America: The First Avenger",
-        "tagline": "When patriots become heroes",
-        "overview": "During World War II, Steve Rogers is a sickly man from Brooklyn who's transformed into super-soldier Captain America to aid in the war effort. Rogers must stop the Red Skull – Adolf Hitler's ruthless head of weaponry, and the leader of an organization that intends to use a mysterious device of untold powers for world domination.",
-        "director": "Joe Johnston",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/vSNxAJTlD0r02V9sPYpOjqDZXUK.jpg",
-        "vote_count": 13853
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 2 - Simple search with offset
-    // q: Captain
-    // limit: 3
-    // offset: 1
-
-    let query = "q=captain&limit=3&offset=1";
-
-    let expect = json!([
-      {
-        "id": 271110,
-        "popularity": 37.431,
-        "vote_average": 7.4,
-        "title": "Captain America: Civil War",
-        "tagline": "Divided We Fall",
-        "overview": "Following the events of Age of Ultron, the collective governments of the world pass an act designed to regulate all superhuman activity. This polarizes opinion amongst the Avengers, causing two factions to side with Iron Man or Captain America, which causes an epic battle between former allies.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/kSBXou5Ac7vEqKd97wotJumyJvU.jpg",
-        "vote_count": 15079
-      },
-      {
-        "id": 1771,
-        "popularity": 19.657,
-        "vote_average": 6.9,
-        "title": "Captain America: The First Avenger",
-        "tagline": "When patriots become heroes",
-        "overview": "During World War II, Steve Rogers is a sickly man from Brooklyn who's transformed into super-soldier Captain America to aid in the war effort. Rogers must stop the Red Skull – Adolf Hitler's ruthless head of weaponry, and the leader of an organization that intends to use a mysterious device of untold powers for world domination.",
-        "director": "Joe Johnston",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/vSNxAJTlD0r02V9sPYpOjqDZXUK.jpg",
-        "vote_count": 13853
-      },
-      {
-        "id": 268531,
-        "popularity": 16.859,
-        "vote_average": 6.0,
-        "title": "Captain Underpants: The First Epic Movie",
-        "tagline": "",
-        "overview": "Two mischievous kids hypnotize their mean elementary school principal and turn him into their comic book creation, the kind-hearted and elastic-banded Captain Underpants.",
-        "director": "David Soren",
-        "producer": "Chris Finnegan",
-        "genres": [
-          "Action",
-          "Animation",
-          "Comedy",
-          "Family"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AjHZIkzhPXrRNE4VSLVWx6dirK9.jpg",
-        "vote_count": 653
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 3 - Simple search with attribute to highlight all
-    // q: Captain
-    // limit: 1
-    // attributeToHighlight: *
-
-    let query = "q=captain&limit=1&attributesToHighlight=*";
-
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_formatted": {
-          "id": 299537,
-          "popularity": 44.726,
-          "vote_average": 7.0,
-          "title": "<em>Captain</em> Marvel",
-          "tagline": "Higher. Further. Faster.",
-          "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, <em>Captain</em> Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-          "director": "Ryan Fleck",
-          "producer": "Kevin Feige",
-          "genres": [
-            "Action",
-            "Adventure",
-            "Science Fiction"
+    let expected = json!([
+        {
+          "id": 1,
+          "balance": "$1,706.13",
+          "picture": "http://placehold.it/32x32",
+          "age": 27,
+          "color": "Green",
+          "name": "Cherry Orr",
+          "gender": "female",
+          "email": "cherryorr@chorizon.com",
+          "phone": "+1 (995) 479-3174",
+          "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+          "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+          "registered": "2020-03-18T11:12:21 -01:00",
+          "latitude": -24.356932,
+          "longitude": 27.184808,
+          "tags": [
+            "new issue",
+            "bug"
           ],
-          "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-          "vote_count": 7858
-        }
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 4 - Simple search with attribute to highlight title
-    // q: Captain
-    // limit: 1
-    // attributeToHighlight: title
-
-    let query = "q=captain&limit=1&attributesToHighlight=title";
-
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_formatted": {
-          "id": 299537,
-          "popularity": 44.726,
-          "vote_average": 7.0,
-          "title": "<em>Captain</em> Marvel",
-          "tagline": "Higher. Further. Faster.",
-          "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-          "director": "Ryan Fleck",
-          "producer": "Kevin Feige",
-          "genres": [
-            "Action",
-            "Adventure",
-            "Science Fiction"
-          ],
-          "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-          "vote_count": 7858
-        }
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with attribute to highlight title and tagline
-    // q: Captain
-    // limit: 1
-    // attributeToHighlight: title,tagline
-
-    let query = "q=captain&limit=1&attributesToHighlight=title,tagline";
-
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_formatted": {
-          "id": 299537,
-          "popularity": 44.726,
-          "vote_average": 7.0,
-          "title": "<em>Captain</em> Marvel",
-          "tagline": "Higher. Further. Faster.",
-          "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-          "director": "Ryan Fleck",
-          "producer": "Kevin Feige",
-          "genres": [
-            "Action",
-            "Adventure",
-            "Science Fiction"
-          ],
-          "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-          "vote_count": 7858
-        }
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with attribute to highlight title and overview
-    // q: Captain
-    // limit: 1
-    // attributeToHighlight: title,overview
-
-    let query = "q=captain&limit=1&attributesToHighlight=title,overview";
-
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_formatted": {
-          "id": 299537,
-          "popularity": 44.726,
-          "vote_average": 7.0,
-          "title": "<em>Captain</em> Marvel",
-          "tagline": "Higher. Further. Faster.",
-          "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, <em>Captain</em> Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-          "director": "Ryan Fleck",
-          "producer": "Kevin Feige",
-          "genres": [
-            "Action",
-            "Adventure",
-            "Science Fiction"
-          ],
-          "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-          "vote_count": 7858
-        }
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with matches
-    // q: Captain
-    // limit: 1
-    // matches: true
-
-    let query = "q=captain&limit=1&matches=true";
-
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_matchesInfo": {
-          "title": [
-            {
-              "start": 0,
-              "length": 7
-            }
-          ],
-          "overview": [
-            {
-              "start": 186,
-              "length": 7
-            }
-          ]
-        }
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with crop
-    // q: Captain
-    // limit: 1
-    // attributesToCrop: overview
-    // cropLength: 20
-
-    let query = "q=captain&limit=1&attributesToCrop=overview&cropLength=20";
-
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_formatted": {
-          "id": 299537,
-          "popularity": 44.726,
-          "vote_average": 7.0,
-          "title": "Captain Marvel",
-          "tagline": "Higher. Further. Faster.",
-          "overview": ". Set in the 1990s, Captain Marvel is an",
-          "director": "Ryan Fleck",
-          "producer": "Kevin Feige",
-          "genres": [
-            "Action",
-            "Adventure",
-            "Science Fiction"
-          ],
-          "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-          "vote_count": 7858
-        }
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with attributes to retrieve
-    // q: Captain
-    // limit: 1
-    // attributesToRetrieve: [title,tagline,overview,poster_path]
-
-    let query = "q=captain&limit=1&attributesToRetrieve=title,tagline,overview,poster_path";
-
-    let expect = json!([
-      {
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg"
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with filter
-    // q: Captain
-    // limit: 1
-    // filters: director:Anthony%20Russo
-
-    let query = "q=captain&limit=3&filters=director:Anthony%20Russo";
-
-    let expect = json!([
-      {
-        "id": 271110,
-        "popularity": 37.431,
-        "vote_average": 7.4,
-        "title": "Captain America: Civil War",
-        "tagline": "Divided We Fall",
-        "overview": "Following the events of Age of Ultron, the collective governments of the world pass an act designed to regulate all superhuman activity. This polarizes opinion amongst the Avengers, causing two factions to side with Iron Man or Captain America, which causes an epic battle between former allies.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/kSBXou5Ac7vEqKd97wotJumyJvU.jpg",
-        "vote_count": 15079
-      },
-      {
-        "id": 100402,
-        "popularity": 16.418,
-        "vote_average": 7.7,
-        "title": "Captain America: The Winter Soldier",
-        "tagline": "In heroes we trust.",
-        "overview": "After the cataclysmic events in New York with The Avengers, Steve Rogers, aka Captain America is living quietly in Washington, D.C. and trying to adjust to the modern world. But when a S.H.I.E.L.D. colleague comes under attack, Steve becomes embroiled in a web of intrigue that threatens to put the world at risk. Joining forces with the Black Widow, Captain America struggles to expose the ever-widening conspiracy while fighting off professional assassins sent to silence him at every turn. When the full scope of the villainous plot is revealed, Captain America and the Black Widow enlist the help of a new ally, the Falcon. However, they soon find themselves up against an unexpected and formidable enemy—the Winter Soldier.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/5TQ6YDmymBpnF005OyoB7ohZps9.jpg",
-        "vote_count": 11972
-      },
-      {
-        "id": 299534,
-        "popularity": 38.659,
-        "vote_average": 8.3,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Science Fiction",
-          "Action"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg",
-        "vote_count": 10497
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with attributes to highlight and matches
-    // q: Captain
-    // limit: 1
-    // attributesToHighlight: [title,overview]
-    // matches: true
-
-    let query = "q=captain&limit=1&attributesToHighlight=title,overview&matches=true";
-
-    let expect = json!( [
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_formatted": {
-          "id": 299537,
-          "popularity": 44.726,
-          "vote_average": 7.0,
-          "title": "<em>Captain</em> Marvel",
-          "tagline": "Higher. Further. Faster.",
-          "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, <em>Captain</em> Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-          "director": "Ryan Fleck",
-          "producer": "Kevin Feige",
-          "genres": [
-            "Action",
-            "Adventure",
-            "Science Fiction"
-          ],
-          "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-          "vote_count": 7858
+          "isActive": true
         },
-        "_matchesInfo": {
-          "overview": [
-            {
-              "start": 186,
-              "length": 7
-            }
+        {
+          "id": 59,
+          "balance": "$1,921.58",
+          "picture": "http://placehold.it/32x32",
+          "age": 31,
+          "color": "Green",
+          "name": "Harper Carson",
+          "gender": "male",
+          "email": "harpercarson@chorizon.com",
+          "phone": "+1 (912) 430-3243",
+          "address": "883 Dennett Place, Knowlton, New Mexico, 9219",
+          "about": "Exercitation minim esse proident cillum velit et deserunt incididunt adipisicing minim. Cillum Lorem consectetur laborum id consequat exercitation velit. Magna dolor excepteur sunt deserunt dolor ullamco non sint proident ipsum. Reprehenderit voluptate sit veniam consectetur ea sunt duis labore deserunt ipsum aute. Eiusmod aliqua anim voluptate id duis tempor aliqua commodo sunt. Do officia ea consectetur nostrud eiusmod laborum.\r\n",
+          "registered": "2019-12-07T07:33:15 -01:00",
+          "latitude": -60.812605,
+          "longitude": -27.129016,
+          "tags": [
+            "bug",
+            "new issue"
           ],
-          "title": [
-            {
-              "start": 0,
-              "length": 7
-            }
-          ]
-        }
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
-
-    // 1 - Simple search with attributes to highlight and matches and crop
-    // q: Captain
-    // limit: 1
-    // attributesToHighlight: [title,overview]
-    // matches: true
-    // cropLength: 20
-    // attributesToCrop: overview
-
-    let query = "q=captain&limit=1&attributesToCrop=overview&cropLength=20&attributesToHighlight=title,overview&matches=true";
-
-    let expect = json!([
-      {
-        "id": 299537,
-        "popularity": 44.726,
-        "vote_average": 7.0,
-        "title": "Captain Marvel",
-        "tagline": "Higher. Further. Faster.",
-        "overview": "The story follows Carol Danvers as she becomes one of the universe’s most powerful heroes when Earth is caught in the middle of a galactic war between two alien races. Set in the 1990s, Captain Marvel is an all-new adventure from a previously unseen period in the history of the Marvel Cinematic Universe.",
-        "director": "Ryan Fleck",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-        "vote_count": 7858,
-        "_formatted": {
-          "id": 299537,
-          "popularity": 44.726,
-          "vote_average": 7.0,
-          "title": "<em>Captain</em> Marvel",
-          "tagline": "Higher. Further. Faster.",
-          "overview": ". Set in the 1990s, <em>Captain</em> Marvel is an",
-          "director": "Ryan Fleck",
-          "producer": "Kevin Feige",
-          "genres": [
-            "Action",
-            "Adventure",
-            "Science Fiction"
-          ],
-          "poster_path": "https://image.tmdb.org/t/p/w500/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg",
-          "vote_count": 7858
+          "isActive": true
         },
-        "_matchesInfo": {
-          "overview": [
-            {
-              "start": 20,
-              "length": 7
-            }
+        {
+          "id": 49,
+          "balance": "$1,476.39",
+          "picture": "http://placehold.it/32x32",
+          "age": 28,
+          "color": "brown",
+          "name": "Maureen Dale",
+          "gender": "female",
+          "email": "maureendale@chorizon.com",
+          "phone": "+1 (984) 538-3684",
+          "address": "817 Newton Street, Bannock, Wyoming, 1468",
+          "about": "Tempor mollit exercitation excepteur cupidatat reprehenderit ad ex. Nulla laborum proident incididunt quis. Esse laborum deserunt qui anim. Sunt incididunt pariatur cillum anim proident eu ullamco dolor excepteur. Ullamco amet culpa nostrud adipisicing duis aliqua consequat duis non eu id mollit velit. Deserunt ullamco amet in occaecat.\r\n",
+          "registered": "2018-04-26T06:04:40 -02:00",
+          "latitude": -64.196802,
+          "longitude": -117.396238,
+          "tags": [
+            "wontfix"
           ],
-          "title": [
-            {
-              "start": 0,
-              "length": 7
-            }
-          ]
+          "isActive": true
         }
-      }
     ]);
 
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
+    test_post_get_search!(server, query, |response, _status_code| {
+        let hits = response["hits"].as_array().unwrap();
+        let hits: Vec<Value> = hits.iter().cloned().take(3).collect();
+        assert_json_eq!(expected.clone(), serde_json::to_value(hits).unwrap(), ordered: false);
+    });
 }
 
-#[test]
-fn search_with_settings_basic() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[actix_rt::test]
+async fn search_no_params() {
+    let mut server = common::Server::test_server().await;
 
-    let config = json!({
-      "rankingRules": [
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "desc(popularity)",
-        "exactness",
-        "desc(vote_average)"
-      ],
-      "distinctAttribute": null,
-      "searchableAttributes": [
-        "title",
-        "tagline",
-        "overview",
-        "cast",
-        "director",
-        "producer",
-        "production_companies",
-        "genres"
-      ],
-      "displayedAttributes": [
-        "title",
-        "director",
-        "producer",
-        "tagline",
-        "genres",
-        "id",
-        "overview",
-        "vote_count",
-        "vote_average",
-        "poster_path",
-        "popularity"
-      ],
-      "stopWords": null,
-      "synonyms": null,
-      "acceptNewFields": false,
+    let query = json! ({});
+
+    // an empty search should return the 20 first indexed document
+    let dataset: Vec<Value> = serde_json::from_slice(include_bytes!("assets/test_set.json")).unwrap();
+    let expected: Vec<Value> = dataset.into_iter().take(20).collect();
+    let expected: Value = serde_json::to_value(expected).unwrap();
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
     });
-
-    server.update_all_settings(config);
-
-    let query = "q=the%20avangers&limit=3";
-    let expect = json!([
-      {
-        "id": 24428,
-        "popularity": 44.506,
-        "vote_average": 7.7,
-        "title": "The Avengers",
-        "tagline": "Some assembly required.",
-        "overview": "When an unexpected enemy emerges and threatens global safety and security, Nick Fury, director of the international peacekeeping agency known as S.H.I.E.L.D., finds himself in need of a team to pull the world back from the brink of disaster. Spanning the globe, a daring recruitment effort begins!",
-        "director": "Joss Whedon",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Science Fiction",
-          "Action",
-          "Adventure"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/cezWGskPY5x7GaglTTRN4Fugfb8.jpg",
-        "vote_count": 21079
-      },
-      {
-        "id": 299534,
-        "popularity": 38.659,
-        "vote_average": 8.3,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Science Fiction",
-          "Action"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg",
-        "vote_count": 10497
-      },
-      {
-        "id": 299536,
-        "popularity": 65.013,
-        "vote_average": 8.3,
-        "title": "Avengers: Infinity War",
-        "tagline": "An entire universe. Once and for all.",
-        "overview": "As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos. A despot of intergalactic infamy, his goal is to collect all six Infinity Stones, artifacts of unimaginable power, and use them to inflict his twisted will on all of reality. Everything the Avengers have fought for has led up to this moment - the fate of Earth and existence itself has never been more uncertain.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg",
-        "vote_count": 16056
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
 }
 
-#[test]
-fn search_with_settings_stop_words() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[actix_rt::test]
+async fn search_in_unexisting_index() {
+    let mut server = common::Server::with_uid("test");
 
-    let config = json!({
-      "rankingRules": [
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "desc(popularity)",
-        "exactness",
-        "desc(vote_average)"
-      ],
-      "distinctAttribute": null,
-      "searchableAttributes": [
-        "title",
-        "tagline",
-        "overview",
-        "cast",
-        "director",
-        "producer",
-        "production_companies",
-        "genres"
-      ],
-      "displayedAttributes": [
-        "title",
-        "director",
-        "producer",
-        "tagline",
-        "genres",
-        "id",
-        "overview",
-        "vote_count",
-        "vote_average",
-        "poster_path",
-        "popularity"
-      ],
-      "stopWords": ["the"],
-      "synonyms": null,
-      "acceptNewFields": false,
+    let query = json! ({
+        "q": "exercitation"
     });
 
-    server.update_all_settings(config);
+    let expected = json! ({
+        "message": "Index test not found",
+        "errorCode": "index_not_found",
+        "errorType": "invalid_request_error",
+        "errorLink": "https://docs.meilisearch.com/errors#index_not_found"
+      });
 
-    let query = "q=the%20avangers&limit=3";
-    let expect = json!([
-      {
-        "id": 299536,
-        "popularity": 65.013,
-        "vote_average": 8.3,
-        "title": "Avengers: Infinity War",
-        "tagline": "An entire universe. Once and for all.",
-        "overview": "As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos. A despot of intergalactic infamy, his goal is to collect all six Infinity Stones, artifacts of unimaginable power, and use them to inflict his twisted will on all of reality. Everything the Avengers have fought for has led up to this moment - the fate of Earth and existence itself has never been more uncertain.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg",
-        "vote_count": 16056
-      },
-      {
-        "id": 299534,
-        "popularity": 38.659,
-        "vote_average": 8.3,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Science Fiction",
-          "Action"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg",
-        "vote_count": 10497
-      },
-      {
-        "id": 99861,
-        "popularity": 33.938,
-        "vote_average": 7.3,
-        "title": "Avengers: Age of Ultron",
-        "tagline": "A New Age Has Come.",
-        "overview": "When Tony Stark tries to jumpstart a dormant peacekeeping program, things go awry and Earth’s Mightiest Heroes are put to the ultimate test as the fate of the planet hangs in the balance. As the villainous Ultron emerges, it is up to The Avengers to stop him from enacting his terrible plans, and soon uneasy alliances and unexpected action pave the way for an epic and unique global adventure.",
-        "director": "Joss Whedon",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/t90Y3G8UGQp0f0DrP60wRu9gfrH.jpg",
-        "vote_count": 14661
-      }
-    ]);
-
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
+    test_post_get_search!(server, query, |response, status_code| {
+        assert_eq!(404, status_code);
+        assert_json_eq!(expected.clone(), response.clone(), ordered: false);
+    });
 }
 
-#[test]
-fn search_with_settings_synonyms() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[actix_rt::test]
+async fn search_unexpected_params() {
 
-    let config = json!({
-      "rankingRules": [
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "desc(popularity)",
-        "exactness",
-        "desc(vote_average)"
-      ],
-      "distinctAttribute": null,
-      "searchableAttributes": [
-        "title",
-        "tagline",
-        "overview",
-        "cast",
-        "director",
-        "producer",
-        "production_companies",
-        "genres"
-      ],
-      "displayedAttributes": [
-        "title",
-        "director",
-        "producer",
-        "tagline",
-        "genres",
-        "id",
-        "overview",
-        "vote_count",
-        "vote_average",
-        "poster_path",
-        "popularity"
-      ],
-      "stopWords": null,
-      "synonyms": {
-        "avangers": [
-          "Captain America",
-          "Iron Man"
-        ]
-      },
-      "acceptNewFields": false,
-    });
+    let query = json! ({"lol": "unexpected"});
 
-    server.update_all_settings(config);
+    let expected = "unknown field `lol`, expected one of `q`, `offset`, `limit`, `attributesToRetrieve`, `attributesToCrop`, `cropLength`, `attributesToHighlight`, `filters`, `matches`, `facetFilters`, `facetsDistribution` at line 1 column 6";
 
-    let query = "q=avangers&limit=3";
-    let expect = json!([
-      {
-        "id": 299536,
-        "popularity": 65.013,
-        "vote_average": 8.3,
-        "title": "Avengers: Infinity War",
-        "tagline": "An entire universe. Once and for all.",
-        "overview": "As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos. A despot of intergalactic infamy, his goal is to collect all six Infinity Stones, artifacts of unimaginable power, and use them to inflict his twisted will on all of reality. Everything the Avengers have fought for has led up to this moment - the fate of Earth and existence itself has never been more uncertain.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "vote_count": 16056,
-        "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg"
-      },
-      {
-        "id": 299534,
-        "popularity": 38.659,
-        "vote_average": 8.3,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Science Fiction",
-          "Action"
-        ],
-        "vote_count": 10497,
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg"
-      },
-      {
-        "id": 99861,
-        "popularity": 33.938,
-        "vote_average": 7.3,
-        "title": "Avengers: Age of Ultron",
-        "tagline": "A New Age Has Come.",
-        "overview": "When Tony Stark tries to jumpstart a dormant peacekeeping program, things go awry and Earth’s Mightiest Heroes are put to the ultimate test as the fate of the planet hangs in the balance. As the villainous Ultron emerges, it is up to The Avengers to stop him from enacting his terrible plans, and soon uneasy alliances and unexpected action pave the way for an epic and unique global adventure.",
-        "director": "Joss Whedon",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "vote_count": 14661,
-        "poster_path": "https://image.tmdb.org/t/p/w500/t90Y3G8UGQp0f0DrP60wRu9gfrH.jpg"
-      }
-    ]);
+    let post_query = serde_json::from_str::<meilisearch_http::routes::search::SearchQueryPost>(&query.clone().to_string());
+    assert!(post_query.is_err());
+    assert_eq!(expected.clone(), post_query.err().unwrap().to_string());
 
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
+    let get_query: Result<meilisearch_http::routes::search::SearchQuery, _> = serde_json::from_str(&query.clone().to_string());
+    assert!(get_query.is_err());
+    assert_eq!(expected.clone(), get_query.err().unwrap().to_string());
 }
 
-#[test]
-fn search_with_settings_ranking_rules() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[actix_rt::test]
+async fn search_with_limit() {
+    let mut server = common::Server::test_server().await;
 
-    let config = json!({
-      "rankingRules": [
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "asc(vote_average)",
-        "exactness",
-        "desc(popularity)"
-      ],
-      "distinctAttribute": null,
-      "searchableAttributes": [
-        "title",
-        "tagline",
-        "overview",
-        "cast",
-        "director",
-        "producer",
-        "production_companies",
-        "genres"
-      ],
-      "displayedAttributes": [
-        "title",
-        "director",
-        "producer",
-        "tagline",
-        "genres",
-        "id",
-        "overview",
-        "vote_count",
-        "vote_average",
-        "poster_path",
-        "popularity"
-      ],
-      "stopWords": null,
-      "synonyms": null,
-      "acceptNewFields": false,
+    let query = json! ({
+        "q": "exercitation",
+        "limit": 3
     });
 
-    server.update_all_settings(config);
-
-    let query = "q=avangers&limit=3";
-    let expect = json!([
-      {
-        "id": 99861,
-        "popularity": 33.938,
-        "vote_average": 7.3,
-        "title": "Avengers: Age of Ultron",
-        "tagline": "A New Age Has Come.",
-        "overview": "When Tony Stark tries to jumpstart a dormant peacekeeping program, things go awry and Earth’s Mightiest Heroes are put to the ultimate test as the fate of the planet hangs in the balance. As the villainous Ultron emerges, it is up to The Avengers to stop him from enacting his terrible plans, and soon uneasy alliances and unexpected action pave the way for an epic and unique global adventure.",
-        "director": "Joss Whedon",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/t90Y3G8UGQp0f0DrP60wRu9gfrH.jpg",
-        "vote_count": 14661
-      },
-      {
-        "id": 299536,
-        "popularity": 65.013,
-        "vote_average": 8.3,
-        "title": "Avengers: Infinity War",
-        "tagline": "An entire universe. Once and for all.",
-        "overview": "As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos. A despot of intergalactic infamy, his goal is to collect all six Infinity Stones, artifacts of unimaginable power, and use them to inflict his twisted will on all of reality. Everything the Avengers have fought for has led up to this moment - the fate of Earth and existence itself has never been more uncertain.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg",
-        "vote_count": 16056
-      },
-      {
-        "id": 299534,
-        "popularity": 38.659,
-        "vote_average": 8.3,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Science Fiction",
-          "Action"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg",
-        "vote_count": 10497
-      }
+    let expected = json!([
+        {
+          "id": 1,
+          "balance": "$1,706.13",
+          "picture": "http://placehold.it/32x32",
+          "age": 27,
+          "color": "Green",
+          "name": "Cherry Orr",
+          "gender": "female",
+          "email": "cherryorr@chorizon.com",
+          "phone": "+1 (995) 479-3174",
+          "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+          "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+          "registered": "2020-03-18T11:12:21 -01:00",
+          "latitude": -24.356932,
+          "longitude": 27.184808,
+          "tags": [
+            "new issue",
+            "bug"
+          ],
+          "isActive": true
+        },
+        {
+          "id": 59,
+          "balance": "$1,921.58",
+          "picture": "http://placehold.it/32x32",
+          "age": 31,
+          "color": "Green",
+          "name": "Harper Carson",
+          "gender": "male",
+          "email": "harpercarson@chorizon.com",
+          "phone": "+1 (912) 430-3243",
+          "address": "883 Dennett Place, Knowlton, New Mexico, 9219",
+          "about": "Exercitation minim esse proident cillum velit et deserunt incididunt adipisicing minim. Cillum Lorem consectetur laborum id consequat exercitation velit. Magna dolor excepteur sunt deserunt dolor ullamco non sint proident ipsum. Reprehenderit voluptate sit veniam consectetur ea sunt duis labore deserunt ipsum aute. Eiusmod aliqua anim voluptate id duis tempor aliqua commodo sunt. Do officia ea consectetur nostrud eiusmod laborum.\r\n",
+          "registered": "2019-12-07T07:33:15 -01:00",
+          "latitude": -60.812605,
+          "longitude": -27.129016,
+          "tags": [
+            "bug",
+            "new issue"
+          ],
+          "isActive": true
+        },
+        {
+          "id": 49,
+          "balance": "$1,476.39",
+          "picture": "http://placehold.it/32x32",
+          "age": 28,
+          "color": "brown",
+          "name": "Maureen Dale",
+          "gender": "female",
+          "email": "maureendale@chorizon.com",
+          "phone": "+1 (984) 538-3684",
+          "address": "817 Newton Street, Bannock, Wyoming, 1468",
+          "about": "Tempor mollit exercitation excepteur cupidatat reprehenderit ad ex. Nulla laborum proident incididunt quis. Esse laborum deserunt qui anim. Sunt incididunt pariatur cillum anim proident eu ullamco dolor excepteur. Ullamco amet culpa nostrud adipisicing duis aliqua consequat duis non eu id mollit velit. Deserunt ullamco amet in occaecat.\r\n",
+          "registered": "2018-04-26T06:04:40 -02:00",
+          "latitude": -64.196802,
+          "longitude": -117.396238,
+          "tags": [
+            "wontfix"
+          ],
+          "isActive": true
+        }
     ]);
 
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
 }
 
-#[test]
-fn search_with_settings_searchable_attributes() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[actix_rt::test]
+async fn search_with_offset() {
+    let mut server = common::Server::test_server().await;
 
-    let config = json!({
-      "rankingRules": [
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "desc(popularity)",
-        "exactness",
-        "desc(vote_average)"
-      ],
-      "distinctAttribute": null,
-      "searchableAttributes": [
-        "tagline",
-        "overview",
-        "cast",
-        "director",
-        "producer",
-        "production_companies",
-        "genres"
-      ],
-      "displayedAttributes": [
-        "title",
-        "director",
-        "producer",
-        "tagline",
-        "genres",
-        "id",
-        "overview",
-        "vote_count",
-        "vote_average",
-        "poster_path",
-        "popularity"
-      ],
-      "stopWords": null,
-      "synonyms": null,
-      "acceptNewFields": false,
+    let query = json!({
+        "q": "exercitation",
+        "limit": 3,
+        "offset": 1
     });
 
-    server.update_all_settings(config);
-
-    let query = "q=avangers&limit=3";
-    let expect = json!([
-      {
-        "id": 299536,
-        "popularity": 65.013,
-        "vote_average": 8.3,
-        "title": "Avengers: Infinity War",
-        "tagline": "An entire universe. Once and for all.",
-        "overview": "As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos. A despot of intergalactic infamy, his goal is to collect all six Infinity Stones, artifacts of unimaginable power, and use them to inflict his twisted will on all of reality. Everything the Avengers have fought for has led up to this moment - the fate of Earth and existence itself has never been more uncertain.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Action",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg",
-        "vote_count": 16056
-      },
-      {
-        "id": 299534,
-        "popularity": 38.659,
-        "vote_average": 8.3,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Adventure",
-          "Science Fiction",
-          "Action"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg",
-        "vote_count": 10497
-      },
-      {
-        "id": 100402,
-        "popularity": 16.418,
-        "vote_average": 7.7,
-        "title": "Captain America: The Winter Soldier",
-        "tagline": "In heroes we trust.",
-        "overview": "After the cataclysmic events in New York with The Avengers, Steve Rogers, aka Captain America is living quietly in Washington, D.C. and trying to adjust to the modern world. But when a S.H.I.E.L.D. colleague comes under attack, Steve becomes embroiled in a web of intrigue that threatens to put the world at risk. Joining forces with the Black Widow, Captain America struggles to expose the ever-widening conspiracy while fighting off professional assassins sent to silence him at every turn. When the full scope of the villainous plot is revealed, Captain America and the Black Widow enlist the help of a new ally, the Falcon. However, they soon find themselves up against an unexpected and formidable enemy—the Winter Soldier.",
-        "director": "Anthony Russo",
-        "producer": "Kevin Feige",
-        "genres": [
-          "Action",
-          "Adventure",
-          "Science Fiction"
-        ],
-        "poster_path": "https://image.tmdb.org/t/p/w500/5TQ6YDmymBpnF005OyoB7ohZps9.jpg",
-        "vote_count": 11972
-      }
+    let expected = json!([
+        {
+          "id": 59,
+          "balance": "$1,921.58",
+          "picture": "http://placehold.it/32x32",
+          "age": 31,
+          "color": "Green",
+          "name": "Harper Carson",
+          "gender": "male",
+          "email": "harpercarson@chorizon.com",
+          "phone": "+1 (912) 430-3243",
+          "address": "883 Dennett Place, Knowlton, New Mexico, 9219",
+          "about": "Exercitation minim esse proident cillum velit et deserunt incididunt adipisicing minim. Cillum Lorem consectetur laborum id consequat exercitation velit. Magna dolor excepteur sunt deserunt dolor ullamco non sint proident ipsum. Reprehenderit voluptate sit veniam consectetur ea sunt duis labore deserunt ipsum aute. Eiusmod aliqua anim voluptate id duis tempor aliqua commodo sunt. Do officia ea consectetur nostrud eiusmod laborum.\r\n",
+          "registered": "2019-12-07T07:33:15 -01:00",
+          "latitude": -60.812605,
+          "longitude": -27.129016,
+          "tags": [
+            "bug",
+            "new issue"
+          ],
+          "isActive": true
+        },
+        {
+          "id": 49,
+          "balance": "$1,476.39",
+          "picture": "http://placehold.it/32x32",
+          "age": 28,
+          "color": "brown",
+          "name": "Maureen Dale",
+          "gender": "female",
+          "email": "maureendale@chorizon.com",
+          "phone": "+1 (984) 538-3684",
+          "address": "817 Newton Street, Bannock, Wyoming, 1468",
+          "about": "Tempor mollit exercitation excepteur cupidatat reprehenderit ad ex. Nulla laborum proident incididunt quis. Esse laborum deserunt qui anim. Sunt incididunt pariatur cillum anim proident eu ullamco dolor excepteur. Ullamco amet culpa nostrud adipisicing duis aliqua consequat duis non eu id mollit velit. Deserunt ullamco amet in occaecat.\r\n",
+          "registered": "2018-04-26T06:04:40 -02:00",
+          "latitude": -64.196802,
+          "longitude": -117.396238,
+          "tags": [
+            "wontfix"
+          ],
+          "isActive": true
+        },
+        {
+          "id": 0,
+          "balance": "$2,668.55",
+          "picture": "http://placehold.it/32x32",
+          "age": 36,
+          "color": "Green",
+          "name": "Lucas Hess",
+          "gender": "male",
+          "email": "lucashess@chorizon.com",
+          "phone": "+1 (998) 478-2597",
+          "address": "412 Losee Terrace, Blairstown, Georgia, 2825",
+          "about": "Mollit ad in exercitation quis. Anim est ut consequat fugiat duis magna aliquip velit nisi. Commodo eiusmod est consequat proident consectetur aliqua enim fugiat. Aliqua adipisicing laboris elit proident enim veniam laboris mollit. Incididunt fugiat minim ad nostrud deserunt tempor in. Id irure officia labore qui est labore nulla nisi. Magna sit quis tempor esse consectetur amet labore duis aliqua consequat.\r\n",
+          "registered": "2016-06-21T09:30:25 -02:00",
+          "latitude": -44.174957,
+          "longitude": -145.725388,
+          "tags": [
+            "bug",
+            "bug"
+          ],
+          "isActive": false
+        }
     ]);
 
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
 }
 
-#[test]
-fn search_with_settings_displayed_attributes() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[actix_rt::test]
+async fn search_with_attribute_to_highlight_wildcard() {
+    let mut server = common::Server::test_server().await;
 
-    let config = json!({
-      "rankingRules": [
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "desc(popularity)",
-        "exactness",
-        "desc(vote_average)"
-      ],
-      "distinctAttribute": null,
-      "searchableAttributes": [
-        "title",
-        "tagline",
-        "overview",
-        "cast",
-        "director",
-        "producer",
-        "production_companies",
-        "genres"
-      ],
-      "displayedAttributes": [
-        "title",
-        "tagline",
-        "id",
-        "overview",
-        "poster_path"
-      ],
-      "stopWords": null,
-      "synonyms": null,
-      "acceptNewFields": false,
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToHighlight": ["*"]
     });
 
-    server.update_all_settings(config);
-
-    let query = "q=avangers&limit=3";
-    let expect = json!([
-      {
-        "id": 299536,
-        "title": "Avengers: Infinity War",
-        "tagline": "An entire universe. Once and for all.",
-        "overview": "As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos. A despot of intergalactic infamy, his goal is to collect all six Infinity Stones, artifacts of unimaginable power, and use them to inflict his twisted will on all of reality. Everything the Avengers have fought for has led up to this moment - the fate of Earth and existence itself has never been more uncertain.",
-        "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg"
-      },
-      {
-        "id": 299534,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg"
-      },
-      {
-        "id": 99861,
-        "title": "Avengers: Age of Ultron",
-        "tagline": "A New Age Has Come.",
-        "overview": "When Tony Stark tries to jumpstart a dormant peacekeeping program, things go awry and Earth’s Mightiest Heroes are put to the ultimate test as the fate of the planet hangs in the balance. As the villainous Ultron emerges, it is up to The Avengers to stop him from enacting his terrible plans, and soon uneasy alliances and unexpected action pave the way for an epic and unique global adventure.",
-        "poster_path": "https://image.tmdb.org/t/p/w500/t90Y3G8UGQp0f0DrP60wRu9gfrH.jpg"
-      }
+    let expected = json!([
+        {
+          "id": 1,
+          "balance": "$1,706.13",
+          "picture": "http://placehold.it/32x32",
+          "age": 27,
+          "color": "Green",
+          "name": "Cherry Orr",
+          "gender": "female",
+          "email": "cherryorr@chorizon.com",
+          "phone": "+1 (995) 479-3174",
+          "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+          "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+          "registered": "2020-03-18T11:12:21 -01:00",
+          "latitude": -24.356932,
+          "longitude": 27.184808,
+          "tags": [
+            "new issue",
+            "bug"
+          ],
+          "isActive": true,
+          "_formatted": {
+            "id": 1,
+            "balance": "$1,706.13",
+            "picture": "http://placehold.it/32x32",
+            "age": 27,
+            "color": "Green",
+            "name": "<em>Cherry</em> Orr",
+            "gender": "female",
+            "email": "<em>cherry</em>orr@chorizon.com",
+            "phone": "+1 (995) 479-3174",
+            "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+            "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+            "registered": "2020-03-18T11:12:21 -01:00",
+            "latitude": -24.356932,
+            "longitude": 27.184808,
+            "tags": [
+              "new issue",
+              "bug"
+            ],
+            "isActive": true
+          }
+        }
     ]);
 
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
 }
 
-#[test]
-fn search_with_settings_searchable_attributes_2() {
-    let mut server = common::Server::with_uid("movies");
-    server.populate_movies();
+#[actix_rt::test]
+async fn search_with_attribute_to_highlight_1() {
+    let mut server = common::Server::test_server().await;
 
-    let config = json!({
-      "rankingRules": [
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "desc(popularity)",
-        "exactness",
-        "desc(vote_average)"
-      ],
-      "distinctAttribute": null,
-      "searchableAttributes": [
-        "tagline",
-        "overview",
-        "title",
-        "cast",
-        "director",
-        "producer",
-        "production_companies",
-        "genres"
-      ],
-      "displayedAttributes": [
-        "title",
-        "tagline",
-        "id",
-        "overview",
-        "poster_path"
-      ],
-      "stopWords": null,
-      "synonyms": null,
-      "acceptNewFields": false,
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToHighlight": ["name"]
     });
 
-    server.update_all_settings(config);
+    let expected = json!([
+        {
+          "id": 1,
+          "balance": "$1,706.13",
+          "picture": "http://placehold.it/32x32",
+          "age": 27,
+          "color": "Green",
+          "name": "Cherry Orr",
+          "gender": "female",
+          "email": "cherryorr@chorizon.com",
+          "phone": "+1 (995) 479-3174",
+          "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+          "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+          "registered": "2020-03-18T11:12:21 -01:00",
+          "latitude": -24.356932,
+          "longitude": 27.184808,
+          "tags": [
+            "new issue",
+            "bug"
+          ],
+          "isActive": true,
+          "_formatted": {
+            "id": 1,
+            "balance": "$1,706.13",
+            "picture": "http://placehold.it/32x32",
+            "age": 27,
+            "color": "Green",
+            "name": "<em>Cherry</em> Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "phone": "+1 (995) 479-3174",
+            "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+            "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+            "registered": "2020-03-18T11:12:21 -01:00",
+            "latitude": -24.356932,
+            "longitude": 27.184808,
+            "tags": [
+              "new issue",
+              "bug"
+            ],
+            "isActive": true
+          }
+        }
+    ]);
 
-    let query = "q=avangers&limit=3";
-    let expect = json!([
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_matches() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "matches": true
+    });
+
+    let expected = json!([
+        {
+          "id": 1,
+          "balance": "$1,706.13",
+          "picture": "http://placehold.it/32x32",
+          "age": 27,
+          "color": "Green",
+          "name": "Cherry Orr",
+          "gender": "female",
+          "email": "cherryorr@chorizon.com",
+          "phone": "+1 (995) 479-3174",
+          "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+          "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+          "registered": "2020-03-18T11:12:21 -01:00",
+          "latitude": -24.356932,
+          "longitude": 27.184808,
+          "tags": [
+            "new issue",
+            "bug"
+          ],
+          "isActive": true,
+          "_matchesInfo": {
+            "name": [
+              {
+                "start": 0,
+                "length": 6
+              }
+            ],
+            "email": [
+              {
+                "start": 0,
+                "length": 6
+              }
+            ]
+          }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_crop() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "exercitation",
+        "limit": 1,
+        "attributesToCrop": ["about"],
+        "cropLength": 20
+    });
+
+    let expected = json!([
+        {
+            "id": 1,
+            "balance": "$1,706.13",
+            "picture": "http://placehold.it/32x32",
+            "age": 27,
+            "color": "Green",
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "phone": "+1 (995) 479-3174",
+            "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+            "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+            "registered": "2020-03-18T11:12:21 -01:00",
+            "latitude": -24.356932,
+            "longitude": 27.184808,
+            "tags": [
+              "new issue",
+              "bug"
+            ],
+            "isActive": true,
+            "_formatted": {
+              "id": 1,
+              "balance": "$1,706.13",
+              "picture": "http://placehold.it/32x32",
+              "age": 27,
+              "color": "Green",
+              "name": "Cherry Orr",
+              "gender": "female",
+              "email": "cherryorr@chorizon.com",
+              "phone": "+1 (995) 479-3174",
+              "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+              "about": "Exercitation officia",
+              "registered": "2020-03-18T11:12:21 -01:00",
+              "latitude": -24.356932,
+              "longitude": 27.184808,
+              "tags": [
+                "new issue",
+                "bug"
+              ],
+              "isActive": true
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_attributes_to_retrieve() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","color","gender"],
+    });
+
+    let expected = json!([
       {
-        "id": 299536,
-        "title": "Avengers: Infinity War",
-        "tagline": "An entire universe. Once and for all.",
-        "overview": "As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos. A despot of intergalactic infamy, his goal is to collect all six Infinity Stones, artifacts of unimaginable power, and use them to inflict his twisted will on all of reality. Everything the Avengers have fought for has led up to this moment - the fate of Earth and existence itself has never been more uncertain.",
-        "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg"
-      },
-      {
-        "id": 299534,
-        "title": "Avengers: Endgame",
-        "tagline": "Part of the journey is the end.",
-        "overview": "After the devastating events of Avengers: Infinity War, the universe is in ruins due to the efforts of the Mad Titan, Thanos. With the help of remaining allies, the Avengers must assemble once more in order to undo Thanos' actions and restore order to the universe once and for all, no matter what consequences may be in store.",
-        "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg"
-      },
-      {
-        "id": 100402,
-        "title": "Captain America: The Winter Soldier",
-        "tagline": "In heroes we trust.",
-        "overview": "After the cataclysmic events in New York with The Avengers, Steve Rogers, aka Captain America is living quietly in Washington, D.C. and trying to adjust to the modern world. But when a S.H.I.E.L.D. colleague comes under attack, Steve becomes embroiled in a web of intrigue that threatens to put the world at risk. Joining forces with the Black Widow, Captain America struggles to expose the ever-widening conspiracy while fighting off professional assassins sent to silence him at every turn. When the full scope of the villainous plot is revealed, Captain America and the Black Widow enlist the help of a new ally, the Falcon. However, they soon find themselves up against an unexpected and formidable enemy—the Winter Soldier.",
-        "poster_path": "https://image.tmdb.org/t/p/w500/5TQ6YDmymBpnF005OyoB7ohZps9.jpg"
+          "name": "Cherry Orr",
+          "age": 27,
+          "color": "Green",
+          "gender": "female"
       }
     ]);
 
-    let (response, _status_code) = server.search(query);
-    assert_json_eq!(expect, response["hits"].clone(), ordered: false);
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_attributes_to_retrieve_wildcard() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["*"],
+    });
+
+    let expected = json!([
+        {
+            "id": 1,
+            "isActive": true,
+            "balance": "$1,706.13",
+            "picture": "http://placehold.it/32x32",
+            "age": 27,
+            "color": "Green",
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "phone": "+1 (995) 479-3174",
+            "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+            "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+            "registered": "2020-03-18T11:12:21 -01:00",
+            "latitude": -24.356932,
+            "longitude": 27.184808,
+            "tags": [
+                "new issue",
+                "bug"
+            ]
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_filter() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "exercitation",
+        "limit": 3,
+        "filters": "gender='male'"
+    });
+
+    let expected = json!([
+        {
+            "id": 59,
+            "balance": "$1,921.58",
+            "picture": "http://placehold.it/32x32",
+            "age": 31,
+            "color": "Green",
+            "name": "Harper Carson",
+            "gender": "male",
+            "email": "harpercarson@chorizon.com",
+            "phone": "+1 (912) 430-3243",
+            "address": "883 Dennett Place, Knowlton, New Mexico, 9219",
+            "about": "Exercitation minim esse proident cillum velit et deserunt incididunt adipisicing minim. Cillum Lorem consectetur laborum id consequat exercitation velit. Magna dolor excepteur sunt deserunt dolor ullamco non sint proident ipsum. Reprehenderit voluptate sit veniam consectetur ea sunt duis labore deserunt ipsum aute. Eiusmod aliqua anim voluptate id duis tempor aliqua commodo sunt. Do officia ea consectetur nostrud eiusmod laborum.\r\n",
+            "registered": "2019-12-07T07:33:15 -01:00",
+            "latitude": -60.812605,
+            "longitude": -27.129016,
+            "tags": [
+                "bug",
+                "new issue"
+            ],
+            "isActive": true
+        },
+        {
+            "id": 0,
+            "balance": "$2,668.55",
+            "picture": "http://placehold.it/32x32",
+            "age": 36,
+            "color": "Green",
+            "name": "Lucas Hess",
+            "gender": "male",
+            "email": "lucashess@chorizon.com",
+            "phone": "+1 (998) 478-2597",
+            "address": "412 Losee Terrace, Blairstown, Georgia, 2825",
+            "about": "Mollit ad in exercitation quis. Anim est ut consequat fugiat duis magna aliquip velit nisi. Commodo eiusmod est consequat proident consectetur aliqua enim fugiat. Aliqua adipisicing laboris elit proident enim veniam laboris mollit. Incididunt fugiat minim ad nostrud deserunt tempor in. Id irure officia labore qui est labore nulla nisi. Magna sit quis tempor esse consectetur amet labore duis aliqua consequat.\r\n",
+            "registered": "2016-06-21T09:30:25 -02:00",
+            "latitude": -44.174957,
+            "longitude": -145.725388,
+            "tags": [
+                "bug",
+                "bug"
+            ],
+            "isActive": false
+        },
+        {
+            "id": 66,
+            "balance": "$1,061.49",
+            "picture": "http://placehold.it/32x32",
+            "age": 35,
+            "color": "brown",
+            "name": "Higgins Aguilar",
+            "gender": "male",
+            "email": "higginsaguilar@chorizon.com",
+            "phone": "+1 (911) 540-3791",
+            "address": "132 Sackman Street, Layhill, Guam, 8729",
+            "about": "Anim ea dolore exercitation minim. Proident cillum non deserunt cupidatat veniam non occaecat aute ullamco irure velit laboris ex aliquip. Voluptate incididunt non ex nulla est ipsum. Amet anim do velit sunt irure sint minim nisi occaecat proident tempor elit exercitation nostrud.\r\n",
+            "registered": "2015-04-05T02:10:07 -02:00",
+            "latitude": 74.702813,
+            "longitude": 151.314972,
+            "tags": [
+                "bug"
+            ],
+            "isActive": true
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+
+    let expected = json!([
+        {
+            "id": 0,
+            "balance": "$2,668.55",
+            "picture": "http://placehold.it/32x32",
+            "age": 36,
+            "color": "Green",
+            "name": "Lucas Hess",
+            "gender": "male",
+            "email": "lucashess@chorizon.com",
+            "phone": "+1 (998) 478-2597",
+            "address": "412 Losee Terrace, Blairstown, Georgia, 2825",
+            "about": "Mollit ad in exercitation quis. Anim est ut consequat fugiat duis magna aliquip velit nisi. Commodo eiusmod est consequat proident consectetur aliqua enim fugiat. Aliqua adipisicing laboris elit proident enim veniam laboris mollit. Incididunt fugiat minim ad nostrud deserunt tempor in. Id irure officia labore qui est labore nulla nisi. Magna sit quis tempor esse consectetur amet labore duis aliqua consequat.\r\n",
+            "registered": "2016-06-21T09:30:25 -02:00",
+            "latitude": -44.174957,
+            "longitude": -145.725388,
+            "tags": [
+                "bug",
+                "bug"
+            ],
+            "isActive": false
+        }
+    ]);
+
+    let query = json!({
+        "q": "exercitation",
+        "limit": 3,
+        "filters": "name='Lucas Hess'"
+    });
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+
+    let expected = json!([
+        {
+            "id": 2,
+            "balance": "$2,467.47",
+            "picture": "http://placehold.it/32x32",
+            "age": 34,
+            "color": "blue",
+            "name": "Patricia Goff",
+            "gender": "female",
+            "email": "patriciagoff@chorizon.com",
+            "phone": "+1 (864) 463-2277",
+            "address": "866 Hornell Loop, Cresaptown, Ohio, 1700",
+            "about": "Non culpa duis dolore Lorem aliqua. Labore veniam laborum cupidatat nostrud ea exercitation. Esse nostrud sit veniam laborum minim ullamco nulla aliqua est cillum magna. Duis non esse excepteur veniam voluptate sunt cupidatat nostrud consequat sint adipisicing ut excepteur. Incididunt sit aliquip non id magna amet deserunt esse quis dolor.\r\n",
+            "registered": "2014-10-28T12:59:30 -01:00",
+            "latitude": -64.008555,
+            "longitude": 11.867098,
+            "tags": [
+                "good first issue"
+            ],
+            "isActive": true
+        },
+        {
+            "id": 75,
+            "balance": "$1,913.42",
+            "picture": "http://placehold.it/32x32",
+            "age": 24,
+            "color": "Green",
+            "name": "Emma Jacobs",
+            "gender": "female",
+            "email": "emmajacobs@chorizon.com",
+            "phone": "+1 (899) 554-3847",
+            "address": "173 Tapscott Street, Esmont, Maine, 7450",
+            "about": "Laboris consequat consectetur tempor labore ullamco ullamco voluptate quis quis duis ut ad. In est irure quis amet sunt nulla ad ut sit labore ut eu quis duis. Nostrud cupidatat aliqua sunt occaecat minim id consequat officia deserunt laborum. Ea dolor reprehenderit laborum veniam exercitation est nostrud excepteur laborum minim id qui et.\r\n",
+            "registered": "2019-03-29T06:24:13 -01:00",
+            "latitude": -35.53722,
+            "longitude": 155.703874,
+            "tags": [],
+            "isActive": false
+        }
+    ]);
+    let query = json!({
+        "q": "exercitation",
+        "limit": 3,
+        "filters": "gender='female' AND (name='Patricia Goff' OR name='Emma Jacobs')"
+    });
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+
+    let expected = json!([
+        {
+            "id": 30,
+            "balance": "$2,021.11",
+            "picture": "http://placehold.it/32x32",
+            "age": 32,
+            "color": "blue",
+            "name": "Stacy Espinoza",
+            "gender": "female",
+            "email": "stacyespinoza@chorizon.com",
+            "phone": "+1 (999) 487-3253",
+            "address": "931 Alabama Avenue, Bangor, Alaska, 8215",
+            "about": "Id reprehenderit cupidatat exercitation anim ad nisi irure. Minim est proident mollit laborum. Duis ad duis eiusmod quis.\r\n",
+            "registered": "2014-07-16T06:15:53 -02:00",
+            "latitude": 41.560197,
+            "longitude": 177.697,
+            "tags": [
+                "new issue",
+                "new issue",
+                "bug"
+            ],
+            "isActive": true
+        },
+        {
+            "id": 31,
+            "balance": "$3,609.82",
+            "picture": "http://placehold.it/32x32",
+            "age": 32,
+            "color": "blue",
+            "name": "Vilma Garza",
+            "gender": "female",
+            "email": "vilmagarza@chorizon.com",
+            "phone": "+1 (944) 585-2021",
+            "address": "565 Tech Place, Sedley, Puerto Rico, 858",
+            "about": "Excepteur et fugiat mollit incididunt cupidatat. Mollit nisi veniam sint eu exercitation amet labore. Voluptate est magna est amet qui minim excepteur cupidatat dolor quis id excepteur aliqua reprehenderit. Proident nostrud ex veniam officia nisi enim occaecat ex magna officia id consectetur ad eu. In et est reprehenderit cupidatat ad minim veniam proident nulla elit nisi veniam proident ex. Eu in irure sit veniam amet incididunt fugiat proident quis ullamco laboris.\r\n",
+            "registered": "2017-06-30T07:43:52 -02:00",
+            "latitude": -12.574889,
+            "longitude": -54.771186,
+            "tags": [
+                "new issue",
+                "wontfix",
+                "wontfix"
+            ],
+            "isActive": false
+        },
+        {
+            "id": 2,
+            "balance": "$2,467.47",
+            "picture": "http://placehold.it/32x32",
+            "age": 34,
+            "color": "blue",
+            "name": "Patricia Goff",
+            "gender": "female",
+            "email": "patriciagoff@chorizon.com",
+            "phone": "+1 (864) 463-2277",
+            "address": "866 Hornell Loop, Cresaptown, Ohio, 1700",
+            "about": "Non culpa duis dolore Lorem aliqua. Labore veniam laborum cupidatat nostrud ea exercitation. Esse nostrud sit veniam laborum minim ullamco nulla aliqua est cillum magna. Duis non esse excepteur veniam voluptate sunt cupidatat nostrud consequat sint adipisicing ut excepteur. Incididunt sit aliquip non id magna amet deserunt esse quis dolor.\r\n",
+            "registered": "2014-10-28T12:59:30 -01:00",
+            "latitude": -64.008555,
+            "longitude": 11.867098,
+            "tags": [
+                "good first issue"
+            ],
+            "isActive": true
+        }
+    ]);
+    let query = json!({
+        "q": "exerciatation",
+        "limit": 3,
+        "filters": "gender='female' AND (name='Patricia Goff' OR age > 30)"
+    });
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+
+    let expected = json!([
+        {
+            "id": 59,
+            "balance": "$1,921.58",
+            "picture": "http://placehold.it/32x32",
+            "age": 31,
+            "color": "Green",
+            "name": "Harper Carson",
+            "gender": "male",
+            "email": "harpercarson@chorizon.com",
+            "phone": "+1 (912) 430-3243",
+            "address": "883 Dennett Place, Knowlton, New Mexico, 9219",
+            "about": "Exercitation minim esse proident cillum velit et deserunt incididunt adipisicing minim. Cillum Lorem consectetur laborum id consequat exercitation velit. Magna dolor excepteur sunt deserunt dolor ullamco non sint proident ipsum. Reprehenderit voluptate sit veniam consectetur ea sunt duis labore deserunt ipsum aute. Eiusmod aliqua anim voluptate id duis tempor aliqua commodo sunt. Do officia ea consectetur nostrud eiusmod laborum.\r\n",
+            "registered": "2019-12-07T07:33:15 -01:00",
+            "latitude": -60.812605,
+            "longitude": -27.129016,
+            "tags": [
+                "bug",
+                "new issue"
+            ],
+            "isActive": true
+        },
+        {
+            "id": 0,
+            "balance": "$2,668.55",
+            "picture": "http://placehold.it/32x32",
+            "age": 36,
+            "color": "Green",
+            "name": "Lucas Hess",
+            "gender": "male",
+            "email": "lucashess@chorizon.com",
+            "phone": "+1 (998) 478-2597",
+            "address": "412 Losee Terrace, Blairstown, Georgia, 2825",
+            "about": "Mollit ad in exercitation quis. Anim est ut consequat fugiat duis magna aliquip velit nisi. Commodo eiusmod est consequat proident consectetur aliqua enim fugiat. Aliqua adipisicing laboris elit proident enim veniam laboris mollit. Incididunt fugiat minim ad nostrud deserunt tempor in. Id irure officia labore qui est labore nulla nisi. Magna sit quis tempor esse consectetur amet labore duis aliqua consequat.\r\n",
+            "registered": "2016-06-21T09:30:25 -02:00",
+            "latitude": -44.174957,
+            "longitude": -145.725388,
+            "tags": [
+                "bug",
+                "bug"
+            ],
+            "isActive": false
+        },
+        {
+            "id": 66,
+            "balance": "$1,061.49",
+            "picture": "http://placehold.it/32x32",
+            "age": 35,
+            "color": "brown",
+            "name": "Higgins Aguilar",
+            "gender": "male",
+            "email": "higginsaguilar@chorizon.com",
+            "phone": "+1 (911) 540-3791",
+            "address": "132 Sackman Street, Layhill, Guam, 8729",
+            "about": "Anim ea dolore exercitation minim. Proident cillum non deserunt cupidatat veniam non occaecat aute ullamco irure velit laboris ex aliquip. Voluptate incididunt non ex nulla est ipsum. Amet anim do velit sunt irure sint minim nisi occaecat proident tempor elit exercitation nostrud.\r\n",
+            "registered": "2015-04-05T02:10:07 -02:00",
+            "latitude": 74.702813,
+            "longitude": 151.314972,
+            "tags": [
+                "bug"
+            ],
+            "isActive": true
+        }
+    ]);
+    let query = json!({
+        "q": "exerciatation",
+        "limit": 3,
+        "filters": "NOT gender = 'female' AND age > 30"
+    });
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+
+    let expected = json!([
+        {
+            "id": 11,
+            "balance": "$1,351.43",
+            "picture": "http://placehold.it/32x32",
+            "age": 28,
+            "color": "Green",
+            "name": "Evans Wagner",
+            "gender": "male",
+            "email": "evanswagner@chorizon.com",
+            "phone": "+1 (889) 496-2332",
+            "address": "118 Monaco Place, Lutsen, Delaware, 6209",
+            "about": "Sunt consectetur enim ipsum consectetur occaecat reprehenderit nulla pariatur. Cupidatat do exercitation tempor voluptate duis nostrud dolor consectetur. Excepteur aliquip Lorem voluptate cillum est. Nisi velit nulla nostrud ea id officia laboris et.\r\n",
+            "registered": "2016-10-27T01:26:31 -02:00",
+            "latitude": -77.673222,
+            "longitude": -142.657214,
+            "tags": [
+                "good first issue",
+                "good first issue"
+            ],
+            "isActive": true
+        }
+    ]);
+    let query = json!({
+        "q": "exerciatation",
+        "filters": "NOT gender = 'female' AND name='Evans Wagner'"
+    });
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_attributes_to_highlight_and_matches() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToHighlight": ["name","email"],
+        "matches": true,
+    });
+
+    let expected = json!([
+        {
+            "id": 1,
+            "balance": "$1,706.13",
+            "picture": "http://placehold.it/32x32",
+            "age": 27,
+            "color": "Green",
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "phone": "+1 (995) 479-3174",
+            "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+            "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+            "registered": "2020-03-18T11:12:21 -01:00",
+            "latitude": -24.356932,
+            "longitude": 27.184808,
+            "tags": [
+                "new issue",
+                "bug"
+            ],
+            "isActive": true,
+            "_formatted": {
+                "id": 1,
+                "balance": "$1,706.13",
+                "picture": "http://placehold.it/32x32",
+                "age": 27,
+                "color": "Green",
+                "name": "<em>Cherry</em> Orr",
+                "gender": "female",
+                "email": "<em>cherry</em>orr@chorizon.com",
+                "phone": "+1 (995) 479-3174",
+                "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+                "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+                "registered": "2020-03-18T11:12:21 -01:00",
+                "latitude": -24.356932,
+                "longitude": 27.184808,
+                "tags": [
+                    "new issue",
+                    "bug"
+                ],
+                "isActive": true
+            },
+            "_matchesInfo": {
+                "email": [
+                    {
+                        "start": 0,
+                        "length": 6
+                    }
+                ],
+                "name": [
+                    {
+                        "start": 0,
+                        "length": 6
+                    }
+                ]
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_attributes_to_highlight_and_matches_and_crop() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "exerciatation",
+        "limit": 1,
+        "attributesToCrop": ["about"],
+        "cropLength": 20,
+        "attributesToHighlight": ["about"],
+        "matches": true,
+    });
+
+    let expected = json!([
+        {
+            "id": 1,
+            "balance": "$1,706.13",
+            "picture": "http://placehold.it/32x32",
+            "age": 27,
+            "color": "Green",
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "phone": "+1 (995) 479-3174",
+            "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+            "about": "Exercitation officia mollit proident nostrud ea. Pariatur voluptate labore nostrud magna duis non elit et incididunt Lorem velit duis amet commodo. Irure in velit laboris pariatur. Do tempor ex deserunt duis minim amet.\r\n",
+            "registered": "2020-03-18T11:12:21 -01:00",
+            "latitude": -24.356932,
+            "longitude": 27.184808,
+            "tags": [
+                "new issue",
+                "bug"
+            ],
+            "isActive": true,
+            "_formatted": {
+                "id": 1,
+                "balance": "$1,706.13",
+                "picture": "http://placehold.it/32x32",
+                "age": 27,
+                "color": "Green",
+                "name": "Cherry Orr",
+                "gender": "female",
+                "email": "cherryorr@chorizon.com",
+                "phone": "+1 (995) 479-3174",
+                "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+                "about": "<em>Exercitation</em> officia",
+                "registered": "2020-03-18T11:12:21 -01:00",
+                "latitude": -24.356932,
+                "longitude": 27.184808,
+                "tags": [
+                    "new issue",
+                    "bug"
+                ],
+                "isActive": true
+            },
+            "_matchesInfo": {
+                "about": [
+                    {
+                        "start": 0,
+                        "length": 12
+                    }
+                ]
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","gender","email"],
+        "attributesToHighlight": ["name"],
+    });
+
+    let expected = json!([
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "_formatted": {
+                "name": "<em>Cherry</em> Orr"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes_2() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "exercitation",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","gender"],
+        "attributesToCrop": ["about"],
+        "cropLength": 20,
+    });
+
+    let expected = json!([
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "_formatted": {
+                "about": "Exercitation officia"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes_3() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "exercitation",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","gender"],
+        "attributesToCrop": ["about:20"],
+    });
+
+    let expected = json!( [
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "_formatted": {
+                "about": "Exercitation officia"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes_4() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","email","gender"],
+        "attributesToCrop": ["name:0","email:6"],
+    });
+
+    let expected = json!([
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "_formatted": {
+                "name": "Cherry",
+                "email": "cherryorr"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes_5() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","email","gender"],
+        "attributesToCrop": ["*","email:6"],
+    });
+
+    let expected = json!([
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "_formatted": {
+                "name": "Cherry Orr",
+                "email": "cherryorr",
+                "age": 27,
+                "gender": "female"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes_6() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","email","gender"],
+        "attributesToCrop": ["*","email:10"],
+        "attributesToHighlight": ["name"],
+    });
+
+    let expected = json!([
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "_formatted": {
+                "age": 27,
+                "name": "<em>Cherry</em> Orr",
+                "gender": "female",
+                "email": "cherryorr@"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes_7() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","gender","email"],
+        "attributesToCrop": ["*","email:6"],
+        "attributesToHighlight": ["*"],
+    });
+
+    let expected = json!([
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "_formatted": {
+                "age": 27,
+                "name": "<em>Cherry</em> Orr",
+                "gender": "female",
+                "email": "<em>cherry</em>orr"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn search_with_differents_attributes_8() {
+    let mut server = common::Server::test_server().await;
+
+    let query = json!({
+        "q": "cherry",
+        "limit": 1,
+        "attributesToRetrieve": ["name","age","email","gender","address"],
+        "attributesToCrop": ["*","email:6"],
+        "attributesToHighlight": ["*","address"],
+    });
+
+    let expected = json!([
+        {
+            "age": 27,
+            "name": "Cherry Orr",
+            "gender": "female",
+            "email": "cherryorr@chorizon.com",
+            "address": "442 Beverly Road, Ventress, New Mexico, 3361",
+            "_formatted": {
+                "age": 27,
+                "name": "<em>Cherry</em> Orr",
+                "gender": "female",
+                "email": "<em>cherry</em>orr",
+                "address": "442 Beverly Road, Ventress, New Mexico, 3361"
+            }
+        }
+    ]);
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_json_eq!(expected.clone(), response["hits"].clone(), ordered: false);
+    });
+}
+
+#[actix_rt::test]
+async fn test_faceted_search_valid() {
+    // set facetting attributes before adding documents
+    let mut server = common::Server::with_uid("test");
+    server.create_index(json!({ "uid": "test" })).await;
+
+    let body = json!({
+        "attributesForFaceting": ["color"]
+    });
+    server.update_all_settings(body).await;
+
+    let dataset = include_bytes!("assets/test_set.json");
+    let body: Value = serde_json::from_slice(dataset).unwrap();
+    server.add_or_update_multiple_documents(body).await;
+
+    // simple tests on attributes with string value
+
+    let query = json!({
+        "q": "a",
+        "facetFilters": ["color:green"]
+    });
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
+        assert!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|value| value.get("color").unwrap() == "Green"));
+    });
+
+    let query = json!({
+        "q": "a",
+        "facetFilters": [["color:blue"]]
+    });
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
+        assert!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|value| value.get("color").unwrap() == "blue"));
+    });
+
+    let query = json!({
+        "q": "a",
+        "facetFilters": ["color:Blue"]
+    });
+
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
+        assert!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|value| value.get("color").unwrap() == "blue"));
+    });
+
+    // test on arrays: ["tags:bug"]
+    let body = json!({
+        "attributesForFaceting": ["color", "tags"]
+    });
+
+    server.update_all_settings(body).await;
+
+    let query = json!({
+        "q": "a",
+        "facetFilters": ["tags:bug"]
+    });
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
+        assert!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|value| value.get("tags").unwrap().as_array().unwrap().contains(&Value::String("bug".to_owned()))));
+    });
+
+    // test and: ["color:blue", "tags:bug"]
+    let query = json!({
+        "q": "a",
+        "facetFilters": ["color:blue", "tags:bug"]
+    });
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
+        assert!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|value| value
+                .get("color")
+                .unwrap() == "blue"
+                && value.get("tags").unwrap().as_array().unwrap().contains(&Value::String("bug".to_owned()))));
+    });
+
+    // test or: [["color:blue", "color:green"]]
+    let query = json!({
+        "q": "a",
+        "facetFilters": [["color:blue", "color:green"]]
+    });
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
+        assert!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|value|
+                value
+                .get("color")
+                .unwrap() == "blue"
+                || value
+                .get("color")
+                .unwrap() == "Green"));
+    });
+    // test and-or: ["tags:bug", ["color:blue", "color:green"]]
+    let query = json!({
+        "q": "a",
+        "facetFilters": ["tags:bug", ["color:blue", "color:green"]]
+    });
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
+        assert!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|value|
+                value
+                .get("tags")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .contains(&Value::String("bug".to_owned()))
+                && (value
+                    .get("color")
+                    .unwrap() == "blue"
+                    || value
+                    .get("color")
+                    .unwrap() == "Green")));
+
+    });
+}
+
+#[actix_rt::test]
+async fn test_faceted_search_invalid() {
+    let mut server = common::Server::test_server().await;
+
+    //no faceted attributes set
+    let query = json!({
+        "q": "a",
+        "facetFilters": ["color:blue"]
+    });
+
+    test_post_get_search!(server, query, |response, status_code| {
+
+        assert_eq!(status_code, 400);
+        assert_eq!(response["errorCode"], "invalid_facet");
+    });
+
+    let body = json!({
+        "attributesForFaceting": ["color", "tags"]
+    });
+    server.update_all_settings(body).await;
+    // empty arrays are error
+    // []
+    let query = json!({
+        "q": "a",
+        "facetFilters": []
+    });
+
+    test_post_get_search!(server, query, |response, status_code| {
+        assert_eq!(status_code, 400);
+        assert_eq!(response["errorCode"], "invalid_facet");
+    });
+    // [[]]
+    let query = json!({
+        "q": "a",
+        "facetFilters": [[]]
+    });
+
+    test_post_get_search!(server, query, |response, status_code| {
+        assert_eq!(status_code, 400);
+        assert_eq!(response["errorCode"], "invalid_facet");
+    });
+
+    // ["color:green", []]
+    let query = json!({
+        "q": "a",
+        "facetFilters": ["color:green", []]
+    });
+
+    test_post_get_search!(server, query, |response, status_code| {
+        assert_eq!(status_code, 400);
+        assert_eq!(response["errorCode"], "invalid_facet");
+    });
+
+    // too much depth
+    // [[[]]]
+    let query = json!({
+        "q": "a",
+        "facetFilters": [[[]]]
+    });
+
+    test_post_get_search!(server, query, |response, status_code| {
+        assert_eq!(status_code, 400);
+        assert_eq!(response["errorCode"], "invalid_facet");
+    });
+
+    // [["color:green", ["color:blue"]]]
+    let query = json!({
+        "q": "a",
+        "facetFilters": [["color:green", ["color:blue"]]]
+    });
+
+    test_post_get_search!(server, query, |response, status_code| {
+        assert_eq!(status_code, 400);
+        assert_eq!(response["errorCode"], "invalid_facet");
+    });
+
+    // "color:green"
+    let query = json!({
+        "q": "a",
+        "facetFilters": "color:green"
+    });
+
+    test_post_get_search!(server, query, |response, status_code| {
+        assert_eq!(status_code, 400);
+        assert_eq!(response["errorCode"], "invalid_facet");
+    });
+}
+
+#[actix_rt::test]
+async fn test_facet_count() {
+    let mut server = common::Server::test_server().await;
+
+    // test without facet distribution
+    let query = json!({
+        "q": "a",
+    });
+    test_post_get_search!(server, query, |response, _status_code|{
+        assert!(response.get("exhaustiveFacetsCount").is_none());
+        assert!(response.get("facetsDistribution").is_none());
+    });
+
+    // test no facets set, search on color
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": ["color"]
+    });
+    test_post_get_search!(server, query.clone(), |_response, status_code|{
+        assert_eq!(status_code, 400);
+    });
+
+    let body = json!({
+        "attributesForFaceting": ["color", "tags"]
+    });
+    server.update_all_settings(body).await;
+    // same as before, but now facets are set:
+    test_post_get_search!(server, query, |response, _status_code|{
+        println!("{}", response);
+        assert!(response.get("exhaustiveFacetsCount").is_some());
+        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 1);
+        // assert that case is preserved
+        assert!(response["facetsDistribution"]
+            .as_object()
+            .unwrap()["color"]
+            .as_object()
+            .unwrap()
+            .get("Green")
+            .is_some());
+    });
+    // searching on color and tags
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": ["color", "tags"]
+    });
+    test_post_get_search!(server, query, |response, _status_code|{
+        let facets = response.get("facetsDistribution").unwrap().as_object().unwrap();
+        assert_eq!(facets.values().count(), 2);
+        assert_ne!(!facets.get("color").unwrap().as_object().unwrap().values().count(), 0);
+        assert_ne!(!facets.get("tags").unwrap().as_object().unwrap().values().count(), 0);
+    });
+    // wildcard
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": ["*"]
+    });
+    test_post_get_search!(server, query, |response, _status_code|{
+        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 2);
+    });
+    // wildcard with other attributes:
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": ["color", "*"]
+    });
+    test_post_get_search!(server, query, |response, _status_code|{
+        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 2);
+    });
+
+    // empty facet list
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": []
+    });
+    test_post_get_search!(server, query, |response, _status_code|{
+        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 0);
+    });
+
+    // attr not set as facet passed:
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": ["gender"]
+    });
+    test_post_get_search!(server, query, |_response, status_code|{
+        assert_eq!(status_code, 400);
+    });
+
+}
+
+#[actix_rt::test]
+#[should_panic]
+async fn test_bad_facet_distribution() {
+    let mut server = common::Server::test_server().await;
+    // string instead of array:
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": "color"
+    });
+    test_post_get_search!(server, query, |_response, _status_code| {});
+
+    // invalid value in array:
+    let query = json!({
+        "q": "a",
+        "facetsDistribution": ["color", true]
+    });
+    test_post_get_search!(server, query, |_response, _status_code| {});
+}
+
+#[actix_rt::test]
+async fn highlight_cropped_text() {
+    let mut server = common::Server::with_uid("test");
+
+    let body = json!({
+        "uid": "test",
+        "primaryKey": "id",
+    });
+    server.create_index(body).await;
+
+    let doc = json!([
+        {
+            "id": 1,
+            "body": r##"well, it may not work like that, try the following: 
+1. insert your trip
+2. google your `searchQuery`
+3. find a solution 
+> say hello"##
+        }
+    ]);
+    server.add_or_replace_multiple_documents(doc).await;
+
+    // tests from #680
+    //let query = "q=insert&attributesToHighlight=*&attributesToCrop=body&cropLength=30";
+    let query = json!({
+        "q": "insert",
+        "attributesToHighlight": ["*"],
+        "attributesToCrop": ["body"],
+        "cropLength": 30,
+    });
+    let expected_response = "that, try the following: \n1. <em>insert</em> your trip\n2. google your";
+    test_post_get_search!(server, query, |response, _status_code|{
+        assert_eq!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .get("_formatted")
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .get("body")
+            .unwrap()
+            , &Value::String(expected_response.to_owned()));
+    });
+
+    //let query = "q=insert&attributesToHighlight=*&attributesToCrop=body&cropLength=80";
+    let query = json!({
+        "q": "insert",
+        "attributesToHighlight": ["*"],
+        "attributesToCrop": ["body"],
+        "cropLength": 80,
+    });
+    let expected_response = "well, it may not work like that, try the following: \n1. <em>insert</em> your trip\n2. google your `searchQuery`\n3. find a solution \n> say hello";
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_eq!(response
+            .get("hits")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .get("_formatted")
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .get("body")
+            .unwrap()
+            , &Value::String(expected_response.to_owned()));
+    });
+}
+
+#[actix_rt::test]
+async fn well_formated_error_with_bad_request_params() {
+    let mut server = common::Server::with_uid("test");
+    let query = "foo=bar";
+    let (response, _status_code) = server.search_get(query).await;
+    assert!(response.get("message").is_some());
+    assert!(response.get("errorCode").is_some());
+    assert!(response.get("errorType").is_some());
+    assert!(response.get("errorLink").is_some());
+}
+
+
+#[actix_rt::test]
+async fn update_documents_with_facet_distribution() {
+    let mut server = common::Server::with_uid("test");
+    let body = json!({
+        "uid": "test",
+        "primaryKey": "id",
+    });
+
+    server.create_index(body).await;
+    let settings = json!({
+        "attributesForFaceting": ["genre"],
+        "displayedAttributes": ["genre"],
+        "searchableAttributes": ["genre"]
+    });
+    server.update_all_settings(settings).await;
+    let update1 = json!([
+        {
+            "id": "1",
+            "type": "album",
+            "title": "Nevermind",
+            "genre": ["grunge", "alternative"]
+        },
+        {
+            "id": "2",
+            "type": "album",
+            "title": "Mellon Collie and the Infinite Sadness",
+            "genre": ["alternative", "rock"]
+        },
+        {
+            "id": "3",
+            "type": "album",
+            "title": "The Queen Is Dead",
+            "genre": ["indie", "rock"]
+        }
+    ]);
+    server.add_or_update_multiple_documents(update1).await;
+    let search = json!({
+        "q": "album",
+        "facetsDistribution": ["genre"]
+    });
+    let (response1, _) = server.search_post(search.clone()).await;
+    let expected_facet_distribution = json!({
+        "genre": {
+            "grunge": 1,
+            "alternative": 2,
+            "rock": 2,
+            "indie": 1
+        }
+    });
+    assert_json_eq!(expected_facet_distribution.clone(), response1["facetsDistribution"].clone());
+
+    let update2 = json!([
+        {
+            "id": "3",
+            "title": "The Queen Is Very Dead"
+        }
+    ]);
+    server.add_or_update_multiple_documents(update2).await;
+    let (response2, _) = server.search_post(search).await;
+    assert_json_eq!(expected_facet_distribution, response2["facetsDistribution"].clone());
 }
